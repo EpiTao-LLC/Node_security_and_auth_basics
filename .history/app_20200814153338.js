@@ -139,21 +139,14 @@ app.get("/register", function (req, res) {
 
 app.get("/secrets", function(req, res) {
     if (req.isAuthenticated()) {
-        User.find({"secret": {$ne: null}}, function(err, foundUsers) {
-            if (err) {
-                console.log(err);
-            } else {
-                if (foundUsers) {
-                    res.render("secrets", {usersWithSecrets: foundUsers});
-                }
-            }
-        });
+        res.render("secrets");
     } else {
         res.redirect("/login");
     }
 });
 
 app.get("/submit", function(req, res) {
+    console.log("in /submit");
     if (req.isAuthenticated()) {
         res.render("submit");
     } else {
@@ -188,18 +181,17 @@ app.post("/login", function(req, res){
             console.log(err);
         } else {
             // passport.authenticate validates and creates a session cookie
-            passport.authenticate("local", {failureRedirect: "/login"})(req, res, function(){
-                    res.redirect("/secrets");
+            passport.authenticate("local")(req, res, function(){
+                res.redirect("/secrets");
             });
-            // passport.authenticate('local', { successRedirect: "/secrets",
-            //                        failureRedirect: "/login" });
         }
     });
 });
 
 app.post("/submit", function(req, res){
     const userSecret = req.body.secret;
-    User.findById(req.user.id, function(err, foundUser){
+    console.log(req.body.user);
+    User.findById({_id: req.body.user.id}, function(req, foundUser){
         if (err) {
             console.log(err);
         } else {

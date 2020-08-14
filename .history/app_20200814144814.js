@@ -26,7 +26,7 @@ app.set('view engine', 'ejs');
 // must be placed before db connection
 
 app.use(session({
-    secret: process.env.SECRET,
+    secret: 'our little secret test',
     resave: false,
     saveUninitialized: false
 }));
@@ -44,9 +44,7 @@ mongoose.set("useCreateIndex", true);
 const userSchema = new mongoose.Schema ({
     email: String,
     password: String,
-    googleId: String,
-    facebookId: String,
-    secret: String
+    googleId: String
 });
 
 userSchema.plugin(passportLocalMongoose);  // hash and salt passwords & save users
@@ -98,6 +96,7 @@ passport.use(new FacebookStrategy({
 ));
 
 
+
 app.get("/", function (req, res) {
     res.render("home");
 });
@@ -116,7 +115,7 @@ app.get("/auth/google/secrets",
   app.get("/auth/facebook",
   passport.authenticate("facebook"));
 
-  app.get("/auth/facebook/secrets",
+  app.get("/auth/facebook/callback",
   passport.authenticate("facebook", { failureRedirect: "/login" }),
   function(req, res) {
     // Successful authentication, redirect home.
@@ -128,37 +127,21 @@ app.get("/login", function (req, res) {
     res.render("login");
 });
 
-app.get("/logout", function(req, res) {
-    req.logout();
-    res.redirect("/");
-});
-
 app.get("/register", function (req, res) {
     res.render("register");
 });
 
 app.get("/secrets", function(req, res) {
     if (req.isAuthenticated()) {
-        User.find({"secret": {$ne: null}}, function(err, foundUsers) {
-            if (err) {
-                console.log(err);
-            } else {
-                if (foundUsers) {
-                    res.render("secrets", {usersWithSecrets: foundUsers});
-                }
-            }
-        });
+        res.render("secrets");
     } else {
-        res.redirect("/login");
+        res.render("login");
     }
 });
 
-app.get("/submit", function(req, res) {
-    if (req.isAuthenticated()) {
-        res.render("submit");
-    } else {
-        res.redirect("/login");
-    }
+app.get("/logout", function(req, res) {
+    req.logout();
+    res.redirect("/");
 });
 
 app.post("/register", function(req, res) {
@@ -188,27 +171,9 @@ app.post("/login", function(req, res){
             console.log(err);
         } else {
             // passport.authenticate validates and creates a session cookie
-            passport.authenticate("local", {failureRedirect: "/login"})(req, res, function(){
-                    res.redirect("/secrets");
+            passport.authenticate("local")(req, res, function(){
+                res.redirect("/secrets");
             });
-            // passport.authenticate('local', { successRedirect: "/secrets",
-            //                        failureRedirect: "/login" });
-        }
-    });
-});
-
-app.post("/submit", function(req, res){
-    const userSecret = req.body.secret;
-    User.findById(req.user.id, function(err, foundUser){
-        if (err) {
-            console.log(err);
-        } else {
-            if(foundUser) {
-                foundUser.secret = userSecret;
-                foundUser.save(function(){
-                    res.redirect("/secrets");
-                });
-            }
         }
     });
 });

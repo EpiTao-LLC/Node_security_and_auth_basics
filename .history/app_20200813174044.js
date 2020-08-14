@@ -17,7 +17,6 @@ const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const FacebookStrategy = require("passport-facebook").Strategy;
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
@@ -26,7 +25,7 @@ app.set('view engine', 'ejs');
 // must be placed before db connection
 
 app.use(session({
-    secret: process.env.SECRET,
+    secret: 'our little secret test',
     resave: false,
     saveUninitialized: false
 }));
@@ -43,10 +42,7 @@ mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema ({
     email: String,
-    password: String,
-    googleId: String,
-    facebookId: String,
-    secret: String
+    password: String
 });
 
 userSchema.plugin(passportLocalMongoose);  // hash and salt passwords & save users
@@ -57,20 +53,8 @@ const User = new mongoose.model("User", userSchema);
 passport.use(User.createStrategy());
 
 // serialize and desearalize are necessary to use with sessions.
-// passport.serializeUser(User.serializeUser());       //these two calls are replaced with below.  These two only handle local auth
-// passport.deserializeUser(User.deserializeUser());   //bottom two are correct for local and other strategies (i.e. 0Auth / google)
-
-passport.serializeUser(function(user, done) {   //creates user cookie for session (user identifications)
-    done(null, user.id);
-  });
-
-passport.deserializeUser(function(id, done) {   //allows passport to open cookie and read message inside
-    User.findById(id, function(err, user) {
-      done(err, user);
-    });
-});
-
-//end of passport (specifically ordered code)
+passport.serializeUser(User.serializeUser());  //creates user cookie for session (user identifications)
+passport.deserializeUser(User.deserializeUser());  //allows passport to open cookie and read message inside
 
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -78,59 +62,21 @@ passport.use(new GoogleStrategy({
     callbackURL: "http://localhost:5500/auth/google/secrets",
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
-  function(accessToken, refreshToken, profile, cb) {   ////REQUIRES mongoose-findorcreate
+  function(accessToken, refreshToken, profile, cb) {   ////REQUIRES mongoose-findorcreate */
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
       return cb(err, user);
     });
   }
 ));
 
-passport.use(new FacebookStrategy({
-    clientID: process.env.FACEBOOK_APP_ID,
-    clientSecret: process.env.FACEBOOK_APP_SECRET,
-    callbackURL: "http://localhost:5500/auth/facebook/secrets"
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
-      return cb(err, user);
-    });
-  }
-));
-
+//end of passport (specifically ordered code)
 
 app.get("/", function (req, res) {
     res.render("home");
 });
 
-app.get("/auth/google",
-    passport.authenticate("google", { scope: ["profile"] })
-);
-
-app.get("/auth/google/secrets",
-  passport.authenticate("google", { failureRedirect: "/login" }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect("/secrets");
-  });
-
-  app.get("/auth/facebook",
-  passport.authenticate("facebook"));
-
-  app.get("/auth/facebook/secrets",
-  passport.authenticate("facebook", { failureRedirect: "/login" }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect("/secrets");
-  });
-
-
 app.get("/login", function (req, res) {
     res.render("login");
-});
-
-app.get("/logout", function(req, res) {
-    req.logout();
-    res.redirect("/");
 });
 
 app.get("/register", function (req, res) {
@@ -139,26 +85,15 @@ app.get("/register", function (req, res) {
 
 app.get("/secrets", function(req, res) {
     if (req.isAuthenticated()) {
-        User.find({"secret": {$ne: null}}, function(err, foundUsers) {
-            if (err) {
-                console.log(err);
-            } else {
-                if (foundUsers) {
-                    res.render("secrets", {usersWithSecrets: foundUsers});
-                }
-            }
-        });
+        res.render("secrets");
     } else {
-        res.redirect("/login");
+        res.render("/login");
     }
 });
 
-app.get("/submit", function(req, res) {
-    if (req.isAuthenticated()) {
-        res.render("submit");
-    } else {
-        res.redirect("/login");
-    }
+app.get("/logout", function(req, res) {
+    req.logout();
+    res.redirect("/");
 });
 
 app.post("/register", function(req, res) {
@@ -174,6 +109,7 @@ app.post("/register", function(req, res) {
             });
         }
     });
+
 });
 
 app.post("/login", function(req, res){
@@ -188,27 +124,9 @@ app.post("/login", function(req, res){
             console.log(err);
         } else {
             // passport.authenticate validates and creates a session cookie
-            passport.authenticate("local", {failureRedirect: "/login"})(req, res, function(){
-                    res.redirect("/secrets");
+            passport.authenticate("local")(req, res, function(){
+                res.redirect("/secrets");
             });
-            // passport.authenticate('local', { successRedirect: "/secrets",
-            //                        failureRedirect: "/login" });
-        }
-    });
-});
-
-app.post("/submit", function(req, res){
-    const userSecret = req.body.secret;
-    User.findById(req.user.id, function(err, foundUser){
-        if (err) {
-            console.log(err);
-        } else {
-            if(foundUser) {
-                foundUser.secret = userSecret;
-                foundUser.save(function(){
-                    res.redirect("/secrets");
-                });
-            }
         }
     });
 });

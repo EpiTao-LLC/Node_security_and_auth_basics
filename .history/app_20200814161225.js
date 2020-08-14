@@ -139,15 +139,7 @@ app.get("/register", function (req, res) {
 
 app.get("/secrets", function(req, res) {
     if (req.isAuthenticated()) {
-        User.find({"secret": {$ne: null}}, function(err, foundUsers) {
-            if (err) {
-                console.log(err);
-            } else {
-                if (foundUsers) {
-                    res.render("secrets", {usersWithSecrets: foundUsers});
-                }
-            }
-        });
+        res.render("secrets");
     } else {
         res.redirect("/login");
     }
@@ -188,7 +180,7 @@ app.post("/login", function(req, res){
             console.log(err);
         } else {
             // passport.authenticate validates and creates a session cookie
-            passport.authenticate("local", {failureRedirect: "/login"})(req, res, function(){
+            passport.authenticate("local", {failureRedirect: "/login", failureFlash: true })(req, res, function(){
                     res.redirect("/secrets");
             });
             // passport.authenticate('local', { successRedirect: "/secrets",
